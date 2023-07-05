@@ -78,8 +78,10 @@ from .utils import (
     get_logger,
 )
 
-if TYPE_CHECKING:
+if TYPE_CHECKING or TaskContext.get():
     import cudf
+
+if TYPE_CHECKING:
     from pyspark.ml._typing import ParamMap
 
 CumlT = Any
@@ -467,6 +469,11 @@ class _CumlCaller(_CumlParams, _CumlCommon):
         cuml_verbose = self.cuml_params.get("verbose", False)
 
         (enable_nccl, require_ucx) = self._require_nccl_ucx()
+
+        if require_ucx:
+            dataset.rdd.context.setLocalProperty("spark.rapids.ml.ucx","true")
+        else:
+            dataset.rdd.context.setLocalProperty("spark.rapids.ml.ucx","false")
 
         def _train_udf(pdf_iter: Iterator[pd.DataFrame]) -> pd.DataFrame:
             from pyspark import BarrierTaskContext

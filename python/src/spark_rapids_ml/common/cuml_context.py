@@ -22,15 +22,22 @@ from typing import TYPE_CHECKING, Any, List, Optional, Tuple
 
 import psutil
 
-if TYPE_CHECKING:
+from pyspark import BarrierTaskContext, TaskContext
+
+
+_task_context=TaskContext.get()
+if TYPE_CHECKING or (_task_context and _task_context.getLocalProperty("spark.rapids.ml.ucx") is "true"):
     # need this first to load shared ucx shared libraries from ucx-py instead of raft-dask
     from ucp import Endpoint
     from pylibraft.common import Handle  # isort: split
     from raft_dask.common import UCX
     from raft_dask.common.nccl import nccl
-
-from pyspark import BarrierTaskContext
-
+    from raft_dask.common.comms_utils import inject_comms_on_handle
+elif _task_context:
+    # do not import ucx libs if not needed
+    from pylibraft.common import Handle  # isort: split
+    from raft_dask.common.nccl import nccl
+    from raft_dask.common.comms_utils import inject_comms_on_handle_coll_only
 
 class CumlContext:
     def __init__(
@@ -49,10 +56,12 @@ class CumlContext:
         3. if require_ucx is true, initialize ucx and inject ucx together with nccl into a handle
         """
         # need this first to load shared ucx shared libraries from ucx-py instead of raft-dask
-        from ucp import Endpoint
-        from pylibraft.common import Handle  # isort: split
-        from raft_dask.common import UCX
-        from raft_dask.common.nccl import nccl
+        # if require_ucx:
+        #     from ucp import Endpoint
+        # from pylibraft.common import Handle  # isort: split
+        # if require_ucx:
+        #     from raft_dask.common import UCX
+        # from raft_dask.common.nccl import nccl
 
         self.enable = enable
         self._handle: Optional["Handle"] = None
@@ -110,14 +119,14 @@ class CumlContext:
         if not self.enable:
             return self
 
-        from raft_dask.common.nccl import nccl
+        #from raft_dask.common.nccl import nccl
 
         # initialize nccl and inject it to the handle. A GPU must be assigned exclusively before init() is called
         self._nccl_comm = nccl()
         self._nccl_comm.init(self._nranks, self._nccl_unique_id, self._rank)
 
         if self._require_ucx is False:
-            from raft_dask.common.comms_utils import inject_comms_on_handle_coll_only
+            #from raft_dask.common.comms_utils import inject_comms_on_handle_coll_only
 
             inject_comms_on_handle_coll_only(
                 self._handle, self._nccl_comm, self._nranks, self._rank, True
@@ -133,7 +142,7 @@ class CumlContext:
                 )
             )
 
-            from raft_dask.common.comms_utils import inject_comms_on_handle
+            #from raft_dask.common.comms_utils import inject_comms_on_handle
 
             inject_comms_on_handle(
                 self._handle,
