@@ -27,6 +27,7 @@ from pyspark import Row, keyword_only
 from pyspark.ml.classification import BinaryRandomForestClassificationSummary
 from pyspark.ml.classification import (
     RandomForestClassificationModel as SparkRandomForestClassificationModel,
+    _LogisticRegressionParams,
 )
 from pyspark.ml.classification import (
     RandomForestClassificationSummary,
@@ -69,7 +70,7 @@ from pyspark.ml.param.shared import (
     HasLabelCol,
     HasPredictionCol 
 )
-from .utils import PartitionDescriptor, _concat_and_free, _ArrayOrder
+from .utils import PartitionDescriptor, _concat_and_free, _ArrayOrder, dtype_to_pyspark_type
 from pyspark.sql.types import (
     ArrayType,
     DoubleType,
@@ -532,6 +533,24 @@ class LogisticRegressionClass(_CumlClass):
     @classmethod
     def _param_mapping(cls) -> Dict[str, Optional[str]]:
         return {
+            "maxIter": "max_iter",
+            "regParam": "C", # regParam = 1/C
+            "tol": "tol",
+            "fitIntercept": "fit_intercept",
+            "elasticNetParam": "",
+            "threshold": "",
+            "thresholds": "",
+            "probabilityCol": "",
+            "rawPredictionCol": "",
+            "standardization": "",
+            "weightCol": "",
+            "aggregationDepth": "",
+            "family": "",
+            "lowerBoundsOnCoefficients": "",
+            "upperBoundsOnCoefficients": "",
+            "lowerBoundsOnIntercepts": "",
+            "upperBoundsOnIntercepts": "",
+            "maxBlockSizeInMB": "",
         }
 
     @classmethod
@@ -539,14 +558,20 @@ class LogisticRegressionClass(_CumlClass):
         cls,
     ) -> Dict[str, Callable[[str], Union[None, str, float, int]]]:
         return {
+            "C" : lambda x : 1 / x if x != 0.0 else 0.0
         }
 
     def _get_cuml_params_default(self) -> Dict[str, Any]:
         return {
+            "fit_intercept": True,
+            "verbose": False,
+            "C": 1.0,
+            "max_iter": 1000,
+            "tol": 0.0001,
         }
 
 class _LogisticRegressionCumlParams(
-    _CumlParams, HasFeaturesCol, HasLabelCol, HasFeaturesCols, HasPredictionCol
+    _CumlParams, _LogisticRegressionParams, HasFeaturesCols
 ):
 
     def getFeaturesCol(self) -> Union[str, List[str]]:  # type:ignore
@@ -588,16 +613,40 @@ class _LogisticRegressionCumlParams(
         """
         return self.set_params(predictionCol=value)
 
+
 class LogisticRegression(
     LogisticRegressionClass,
     _CumlEstimatorSupervised,
     _LogisticRegressionCumlParams,
 ):
+    @keyword_only
     def __init__(
         self, 
         *, 
-        num_workers: Optional[int] = None) :
+        featuresCol: Union[str, List[str]] = "features",
+        labelCol: str = "label",
+        predictionCol: str = "prediction",
+        maxIter: int = 100,
+        regParam: float = 1.0, # TODO: support default value 0.0 
+        tol: float = 1e-6,
+        fitIntercept: bool = True,
+        num_workers: Optional[int] = None,
+        verbose: Union[int, bool] = False,
+        **kwargs: Any) :
         super().__init__()
+
+        # TODO: remove this checking and set_param on regParam once no regularization is supported
+        assert regParam != 0.0, "no regularization is not supported yet. Set regParam to a non-zero value" 
+        self.set_params(**{"regParam": regParam}) # rewrite the default param value from 0.0 to non-zero
+
+        self.set_params(**self._input_kwargs)
+        
+
+    def setMaxIter(self, value: int) -> "LogisticRegression":
+        """
+        Sets the value of :py:attr:`maxIter`.
+        """
+        return self.set_params(maxIter=value)
 
     def _fit_array_order(self) -> _ArrayOrder:
         return "C"
@@ -617,13 +666,6 @@ class LogisticRegression(
             init_parameters = params[param_alias.cuml_init]
 
             from cuml.linear_model.logistic_regression_mg import LogisticRegressionMG
-            supported_params = [
-            ]
-
-            # filter only supported params
-            init_parameters = {
-                k: v for k, v in init_parameters.items() if k in supported_params
-            }
 
             logistic_regression = LogisticRegressionMG(
                 handle=params[param_alias.handle],
@@ -705,7 +747,7 @@ class LogisticRegressionModel(
              from cuml.internals.input_utils import input_to_cuml_array
              import numpy as np
 
-             lr = LogisticRegressionMG()
+             lr = LogisticRegressionMG(output_type="numpy")
              lr.n_cols = n_cols
              lr.dtype = np.dtype(dtype)
              lr.intercept_ = input_to_cuml_array(np.array(intercept_, order="C").astype(dtype)).array
@@ -717,6 +759,12 @@ class LogisticRegressionModel(
              return pd.Series(ret)
 
          return _construct_lr, _predict, None
+
+    def _out_schema(self, input_schema: StructType) -> Union[StructType, str]:
+        assert self.dtype is not None
+
+        pyspark_type = dtype_to_pyspark_type(self.dtype)
+        return f"{pyspark_type}"
 
     def _transform(self, dataset: DataFrame) -> DataFrame:
         df = super()._transform(dataset)
