@@ -33,7 +33,7 @@ from pyspark.ml.classification import (
     RandomForestClassificationSummary,
     _RandomForestClassifierParams,
 )
-from pyspark.ml.linalg import Vector
+from pyspark.ml.linalg import Vector, Vectors
 from pyspark.ml.param.shared import HasProbabilityCol, HasRawPredictionCol
 from pyspark.sql import Column, DataFrame
 from pyspark.sql.functions import col
@@ -540,7 +540,7 @@ class LogisticRegressionClass(_CumlClass):
             "elasticNetParam": "",
             "threshold": "",
             "thresholds": "",
-            "probabilityCol": "",
+            "probabilityCol": "probability",
             "rawPredictionCol": "",
             "standardization": "",
             "weightCol": "",
@@ -571,7 +571,7 @@ class LogisticRegressionClass(_CumlClass):
         }
 
 class _LogisticRegressionCumlParams(
-    _CumlParams, _LogisticRegressionParams, HasFeaturesCols
+    _CumlParams, _LogisticRegressionParams, HasFeaturesCols, HasProbabilityCol
 ):
 
     def getFeaturesCol(self) -> Union[str, List[str]]:  # type:ignore
@@ -612,6 +612,14 @@ class _LogisticRegressionCumlParams(
         Sets the value of :py:attr:`predictionCol`.
         """
         return self.set_params(predictionCol=value)
+    
+    def setProbabilityCol(
+        self: "_LogisticRegressionCumlParams", value: str
+    ) -> "_LogisticRegressionCumlParams":
+        """
+        Sets the value of :py:attr:`probabilityCol`.
+        """
+        return self.set_params(probabilityCol=value)
 
 
 class LogisticRegression(
@@ -672,6 +680,9 @@ class LogisticRegression(
                 **init_parameters,
             )
 
+            # logistic_regression.penalty_normalized=False
+            # logistic_regression.lbfgs_memory=10
+
             X_list = [x for (x, _, _) in dfs]
             y_list = [y for (_, y, _) in dfs]
             if isinstance(X_list[0], pd.DataFrame):
@@ -698,7 +709,7 @@ class LogisticRegression(
                 "coef_": [logistic_regression.coef_.tolist()],
                 "intercept_": [logistic_regression.intercept_.tolist()],
                 "n_cols": [logistic_regression.n_cols],
-                "dtype": [logistic_regression.dtype.name],
+                "dtype": [logistic_regression.dtype.name]
             }
 
         return _logistic_regression_fit
@@ -752,22 +763,41 @@ class LogisticRegressionModel(
              lr.dtype = np.dtype(dtype)
              lr.intercept_ = input_to_cuml_array(np.array(intercept_, order="C").astype(dtype)).array
              lr.coef_ = input_to_cuml_array(np.array(coef_, order="C").astype(dtype)).array
+             # TBD: infer class indices from data for > 2 classes
+             # needed for predict_proba
+             lr.classes_ = input_to_cuml_array(np.array([0,1], order="F").astype(dtype)).array
              return lr
 
-         def _predict(lr: CumlT, pdf: TransformInputType) -> pd.Series:
-             ret = lr.predict(pdf)
-             return pd.Series(ret)
+         def _predict(lr: CumlT, pdf: TransformInputType) -> pd.DataFrame:
+             data = {}
+             data[pred.prediction] = lr.predict(pdf)
+             probs = lr.predict_proba(pdf)
+             if isinstance(probs, pd.DataFrame):
+                data[pred.probability] = pd.Series(probs.values.tolist())
+             else:
+                # should be np.ndarray
+                data[pred.probability] = pd.Series(list(probs))
+             return pd.DataFrame(data)
 
          return _construct_lr, _predict, None
+    
+    @property
+    def coefficients(self) -> Vector:
+        """
+        Model coefficients.
+        """
+        
+        assert len(self.coef_) == 1
+        return Vectors.dense(cast(list, self.coef_[0]))
 
-    def _out_schema(self, input_schema: StructType) -> Union[StructType, str]:
-        assert self.dtype is not None
+    # def _out_schema(self, input_schema: StructType) -> Union[StructType, str]:
+    #     assert self.dtype is not None
 
-        pyspark_type = dtype_to_pyspark_type(self.dtype)
-        return f"{pyspark_type}"
+    #     pyspark_type = dtype_to_pyspark_type(self.dtype)
+    #     return f"{pyspark_type}"
 
-    def _transform(self, dataset: DataFrame) -> DataFrame:
-        df = super()._transform(dataset)
-        return df.withColumn(
-            self.getPredictionCol(), df[self.getPredictionCol()].cast("double")
-        )
+    # def _transform(self, dataset: DataFrame) -> DataFrame:
+    #     df = super()._transform(dataset)
+    #     return df.withColumn(
+    #         self.getPredictionCol(), df[self.getPredictionCol()].cast("double")
+    #     )
