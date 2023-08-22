@@ -80,6 +80,8 @@ if TYPE_CHECKING:
     import cudf
     from pyspark.ml._typing import ParamMap
 
+import sys
+
 
 class UMAPClass(_CumlClass):
     @classmethod
@@ -487,21 +489,7 @@ class UMAP(UMAPClass, _CumlEstimatorSupervised, _UMAPCumlParams):
             embedding = umap_model.embedding_
             del umap_model
 
-            chunkSize = self.max_records_per_batch
-            num_sections = (len(embedding) + chunkSize - 1) // chunkSize
-
-            for i in range(num_sections):
-                start = i * chunkSize
-                end = min((i + 1) * chunkSize, len(embedding))
-
-                yield pd.DataFrame(
-                    data=[
-                        {
-                            "embedding_": embedding[start:end].tolist(),
-                            "raw_data_": concated[start:end].tolist(),
-                        }
-                    ]
-                )
+            return embedding, concated
 
         return _cuml_fit
 
@@ -600,11 +588,25 @@ class UMAP(UMAPClass, _CumlEstimatorSupervised, _UMAPCumlParams):
             # call the cuml fit function
             # *note*: cuml_fit_func may delete components of inputs to free
             # memory.  do not rely on inputs after this call.
-            result = cuml_fit_func(inputs, params)
+            logger.info("Invoking cuml fit")
+            (embedding, concated) = cuml_fit_func(inputs, params)
             logger.info("Cuml fit complete")
 
-            for row in result:
-                yield row
+            chunkSize = self.max_records_per_batch
+            num_sections = (len(embedding) + chunkSize - 1) // chunkSize
+
+            for i in range(num_sections):
+                start = i * chunkSize
+                end = min((i + 1) * chunkSize, len(embedding))
+
+                yield pd.DataFrame(
+                    data=[
+                        {
+                            "embedding_": embedding[start:end].tolist(),
+                            "raw_data_": concated[start:end].tolist(),
+                        }
+                    ]
+                )
 
         output_df = dataset.mapInPandas(_train_udf, schema=self._out_schema())
 
