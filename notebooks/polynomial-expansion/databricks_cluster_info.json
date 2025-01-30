@@ -1,0 +1,50 @@
+{
+    "spark_version": "13.3.x-gpu-ml-scala2.12",
+    "spark_conf": {
+        "spark.rapids.sql.concurrentGpuTasks": "2",
+        "spark.sql.adaptive.enabled": "false",
+        "spark.databricks.delta.optimizeWrite.enabled": "false",
+        "spark.executorEnv.PYTHONPATH": "/databricks/jars/rapids-4-spark_2.12-24.10.1.jar:/databricks/spark/python",
+        "spark.rapids.ml.uvm.enabled": "true",
+        "spark.rapids.sql.python.gpu.enabled": "true",
+        "spark.databricks.delta.preview.enabled": "true",
+        "spark.rapids.sql.batchSizeBytes": "512m",
+        "spark.hadoop.fs.s3a.secret.key": "{{secrets/aws_secret_access_key}}",
+        "spark.locality.wait": "0s",
+        "spark.hadoop.fs.s3a.access.key": "{{secrets/aws_access_key_id}}",
+        "spark.python.worker.reuse": "false",
+        "spark.task.resource.gpu.amount": "0.0625",
+        "spark.rapids.memory.gpu.minAllocFraction": "0.0001",
+        "spark.sql.execution.arrow.pyspark.enabled": "true",
+        "spark.sql.execution.sortBeforeRepartition": "false",
+        "spark.rapids.memory.gpu.pooling.enabled": "false",
+        "spark.rapids.sql.explain": "ALL",
+        "spark.executor.memory": "10g",
+        "spark.executor.cores": "16",
+        "spark.plugins": "com.nvidia.spark.SQLPlugin",
+        "spark.task.cpus": "1",
+        "spark.python.daemon.module": "rapids.daemon_databricks",
+        "spark.sql.execution.arrow.maxRecordsPerBatch": "10000000"
+    },
+    "aws_attributes": {
+        "first_on_demand": 5,
+        "availability": "SPOT",
+        "zone_id": "us-west-2a",
+        "spot_bid_price_percent": 100,
+        "ebs_volume_count": 0
+    },
+    "node_type_id": "g5.4xlarge",
+    "driver_node_type_id": "g4dn.xlarge",
+    "spark_env_vars": {
+        "LIBCUDF_CUFILE_POLICY": "OFF",
+        "NCCL_DEBUG": "INFO"
+    },
+    "autotermination_minutes": 30,
+    "enable_elastic_disk": false,
+    "disk_spec": {
+        "disk_count": 0
+    },
+    "runtime_engine": "STANDARD",
+    "effective_spark_version": "13.3.x-gpu-ml-scala2.12",
+    "num_workers": 4
+}
