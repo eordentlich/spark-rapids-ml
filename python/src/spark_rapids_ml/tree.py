@@ -138,7 +138,7 @@ class _RandomForestClass(_CumlClass):
         return {
             "n_streams": 4,
             "n_estimators": 100,
-            "max_depth": "deprecated",
+            "max_depth": None,
             "max_features": "sqrt",  # for classification, should be 1.0 for regressor, cuml is a little broken here
             "n_bins": 128,
             "bootstrap": True,

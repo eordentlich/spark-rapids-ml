@@ -619,7 +619,7 @@ class LinearRegression(
                 )
 
                 linear_regression.fit(
-                    dfs,
+                    [(df[0], df[1]) for df in dfs],
                     pdesc.m,
                     pdesc.n,
                     pdesc.parts_rank_size,
@@ -648,8 +648,8 @@ class LinearRegression(
                 return {
                     "coef_": coef_.tolist(),
                     "intercept_": intercept_,
-                    "dtype": linear_regression.dtype.name,
-                    "n_cols": linear_regression.n_cols,
+                    "dtype": linear_regression.coef_.dtype.name,
+                    "n_cols": linear_regression.n_features_in_,
                 }
 
             init_parameters = params[param_alias.cuml_init]

@@ -23,6 +23,7 @@ from typing import (
     Callable,
     Dict,
     Iterable,
+    Iterator,
     List,
     Optional,
     Sequence,
@@ -1147,7 +1148,7 @@ class UMAP(UMAPClass, _CumlEstimatorSupervised, _UMAPCumlParams):
 
         chunk_size = self.max_records_per_batch
 
-        def _train_udf(pdf_iter: Iterable[pd.DataFrame]) -> Iterable[pd.DataFrame]:
+        def _train_udf(pdf_iter: Iterable[pd.DataFrame]) -> Iterator[pd.DataFrame]:
             import os
 
             # must be done before importing cupy if SAM is enabled
@@ -1451,8 +1452,9 @@ class UMAPModel(_CumlModelWithColumns, UMAPClass, _UMAPCumlParams):
 
         def _construct_umap() -> CumlT:
             import cupy as cp
-            from cuml.common import SparseCumlArray
-            from cuml.common.sparse_utils import is_sparse
+            import cupyx.scipy.sparse
+            from cuml.common.sparse import is_sparse
+            from cuml.internals.outputs import ArrayIndexPair
             from cuml.manifold import UMAP as CumlUMAP
 
             from .utils import cudf_to_cuml_array
@@ -1500,9 +1502,7 @@ class UMAPModel(_CumlModelWithColumns, UMAPClass, _UMAPCumlParams):
                 raw_data = raw_data.astype(np.float32)
 
             if is_sparse(raw_data):
-                raw_data_cuml = SparseCumlArray(
-                    raw_data,
-                )
+                raw_data_cuml = cupyx.scipy.sparse.csr_matrix(raw_data)
             else:
                 raw_data_cuml = cudf_to_cuml_array(
                     raw_data,
@@ -1511,8 +1511,9 @@ class UMAPModel(_CumlModelWithColumns, UMAPClass, _UMAPCumlParams):
 
             internal_model = CumlUMAP(**cuml_alg_params)
             internal_model.n_features_in_ = raw_data_cuml.shape[1]
-            internal_model.embedding_ = cudf_to_cuml_array(
-                cp.array(embedding, order="C"), order="C"
+            internal_model.embedding_ = ArrayIndexPair(
+                cudf_to_cuml_array(cp.array(embedding, order="C"), order="C"),
+                None,
             )
             internal_model._raw_data = raw_data_cuml
             internal_model._sparse_data = sparse_fit

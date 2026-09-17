@@ -145,9 +145,9 @@ class BlobsDataGen(DataGenBaseMeta):
 
         # UDF to distribute make_blobs() calls across partitions. Each partition
         # produces an equal fraction of the total samples around the predefined centers.
-        def make_blobs_udf(iter: Iterable[pd.DataFrame]) -> Iterable[pd.DataFrame]:
+        def make_blobs_udf(iter: Iterable[pd.DataFrame]) -> Iterator[pd.DataFrame]:
             for pdf in iter:
-                partition_index = pdf.iloc[0][0]
+                partition_index = pdf.iloc[0, 0]
                 n_partition_samples = partition_sizes[partition_index]
                 X, y = make_blobs(
                     n_samples=n_partition_samples,
@@ -264,7 +264,7 @@ class LowRankMatrixDataGen(DataGenBase):
         global_random_state = params["random_state"]
 
         # UDF for distributed generation of U and the resultant product U*S*V.T
-        def make_matrix_udf(iter: Iterable[pd.DataFrame]) -> Iterable[pd.DataFrame]:
+        def make_matrix_udf(iter: Iterable[pd.DataFrame]) -> Iterator[pd.DataFrame]:
             partition_index = pyspark.TaskContext().partitionId()
             my_seed = global_random_state + 100 * partition_index
 
@@ -284,7 +284,7 @@ class LowRankMatrixDataGen(DataGenBase):
 
             for pdf in iter:
 
-                partition_index = pdf.iloc[0][0]
+                partition_index = pdf.iloc[0, 0]
                 n_partition_rows = partition_sizes[partition_index]
                 # Additional batch-wise normalization.
                 if use_cupy:
@@ -473,7 +473,7 @@ class RegressionDataGen(DataGenBaseMeta):
         global_random_state = params["random_state"]
 
         # UDF for distributed generation of X and y.
-        def make_regression_udf(iter: Iterable[pd.DataFrame]) -> Iterable[pd.DataFrame]:
+        def make_regression_udf(iter: Iterable[pd.DataFrame]) -> Iterator[pd.DataFrame]:
             use_cupy = use_gpu
             if use_cupy:
                 try:
@@ -751,7 +751,7 @@ class SparseRegressionDataGen(DataGenBaseMeta):
         # UDF for distributed generation of X and y.
         def make_sparse_regression_udf(
             iter: Iterable[pd.DataFrame],
-        ) -> Iterable[pd.DataFrame]:
+        ) -> Iterator[pd.DataFrame]:
             use_cupy = use_gpu
             if use_cupy:
                 try:
@@ -1089,9 +1089,9 @@ class ClassificationDataGen(DataGenBase):
 
         def make_classification_udf(
             iter: Iterable[pd.DataFrame],
-        ) -> Iterable[pd.DataFrame]:
+        ) -> Iterator[pd.DataFrame]:
             for pdf in iter:
-                partition_index = pdf.iloc[0][0]
+                partition_index = pdf.iloc[0, 0]
                 n_cluster_samples = n_samples_per_cluster_partition[partition_index]
                 n_partition_samples = sum(n_cluster_samples)
                 X_p = np.zeros((n_partition_samples, n_features))

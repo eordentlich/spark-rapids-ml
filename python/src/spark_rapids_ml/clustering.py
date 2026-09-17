@@ -131,6 +131,8 @@ class KMeansClass(_CumlClass):
             "n_init": "auto",
             "oversampling_factor": 2.0,
             "max_samples_per_batch": 32768,
+            "device_buffer_samples": 0,
+            "init_size": 0,
         }
 
     def _pyspark_class(self) -> Optional[ABCMeta]:

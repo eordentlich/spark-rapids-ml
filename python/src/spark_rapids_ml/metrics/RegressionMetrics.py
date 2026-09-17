@@ -44,10 +44,10 @@ class _SummarizerBuffer:
         m2 = \sum_{i=1}^{N}(x_i)^{2}
         l1 (norm) = \sum_{i=1}^{N}|x_i|
         """
-        self._curr_mean = mean
-        self._curr_m2n = m2n
-        self._curr_m2 = m2
-        self._curr_l1 = l1
+        self._curr_mean = list(mean)
+        self._curr_m2n = list(m2n)
+        self._curr_m2 = list(m2)
+        self._curr_l1 = list(l1)
         self._num_cols = len(mean)
         self._total_cnt = total_cnt
         # spark-rapids-ml doesn't support weight col, so default to 1 for each sample.

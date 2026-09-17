@@ -208,7 +208,7 @@ def test_standardize_data() -> None:
 
     from .sparksession import CleanSparkSession
 
-    def test_udf(iter: Iterable[pd.DataFrame]) -> Iterable[pd.DataFrame]:
+    def test_udf(iter: Iterable[pd.DataFrame]) -> Iterator[pd.DataFrame]:
         data = [
             (
                 np.array([[1.0, 2.0], [3.0, 4.0]] * 100, dtype=np.float32),

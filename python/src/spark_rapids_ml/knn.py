@@ -748,6 +748,13 @@ class NearestNeighborsModel(_CumlCaller, _NNModelBase, NearestNeighborsClass):
             item_nrows = sum(pair[1] for pair in item_parts_to_ranks)
             query_nrows = sum(pair[1] for pair in query_parts_to_ranks)
 
+            if query_nrows == 0:
+                return {
+                    f"query_{id_col_name}": [[]],
+                    "indices": [[]],
+                    "distances": [[]],
+                }
+
             # if enabled, reduce sam reserved memory to targeted amount
             cuda_managed_mem_enabled = params[param_alias.mem_config][
                 "cuda_managed_mem_enabled"

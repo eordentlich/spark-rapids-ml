@@ -13,7 +13,7 @@
 # limitations under the License.
 
 import math
-from typing import Any, Dict, Iterable
+from typing import Any, Dict, Iterable, Iterator
 
 import numpy as np
 import pandas as pd
@@ -147,7 +147,7 @@ def test_sparse_large(
         df = df.union(delta_df)
         df_gpu = df.repartition(gpu_number, pid_col)
 
-    def get_nnz_func(pdf_iter: Iterable[pd.DataFrame]) -> Iterable[pd.DataFrame]:
+    def get_nnz_func(pdf_iter: Iterable[pd.DataFrame]) -> Iterator[pd.DataFrame]:
         for pdf in pdf_iter:
             pd_res = pdf["features"].apply(lambda sparse_vec: len(sparse_vec["values"]))
             yield pd_res.rename("nnz").to_frame()

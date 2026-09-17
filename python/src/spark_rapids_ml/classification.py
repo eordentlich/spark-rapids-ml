@@ -1089,6 +1089,9 @@ class LogisticRegression(
                     exc_str = traceback.format_exc()
                     if not "requires n_classes == 2 (got 1)" in exc_str:
                         raise
+                    import cupy as cp
+
+                    logistic_regression.classes_ = cp.unique(concated_y)
 
                 # check if invalid label exists.  Do this first before handling 1 label value to match apache spark.
                 for class_val in logistic_regression.classes_.tolist():
@@ -1101,7 +1104,7 @@ class LogisticRegression(
                             f"Labels MUST be Integers, but got {class_val}"
                         )
 
-                n_cols = logistic_regression.n_cols
+                n_cols = logistic_regression.n_features_in_
 
                 if len(logistic_regression.classes_) == 1:
                     class_val = logistic_regression.classes_[0]

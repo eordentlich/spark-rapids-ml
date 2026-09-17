@@ -1405,8 +1405,12 @@ def test_compat_one_label(
             try:
                 blor_model = blor.fit(bdf)
                 assert False, "There should be a java exception"
-            except Py4JJavaError as e:
-                java_msg = e.java_exception.getMessage()
+            except Exception as e:
+                java_msg = (
+                    e.java_exception.getMessage()
+                    if isinstance(e, Py4JJavaError)
+                    else str(e)
+                )
                 assert spark_v34_msg in java_msg or spark_v33_msg in java_msg
 
             return
@@ -1499,8 +1503,12 @@ def test_compat_wrong_label(
             try:
                 lr.fit(df)
                 assert False, "There should be a java exception"
-            except Py4JJavaError as e:
-                java_msg = e.java_exception.getMessage()
+            except Exception as e:
+                java_msg = (
+                    e.java_exception.getMessage()
+                    if isinstance(e, Py4JJavaError)
+                    else str(e)
+                )
                 assert err_msg_spark_v34 in java_msg or err_msg_spark_v33 in java_msg
 
     # negative label

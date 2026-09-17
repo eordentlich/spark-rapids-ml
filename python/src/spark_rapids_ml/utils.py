@@ -523,13 +523,10 @@ def _concat_with_reserved_gpu_mem(
 
 
 def cudf_to_cuml_array(gdf: Union["cudf.DataFrame", "cudf.Series"], order: str = "F"):  # type: ignore
-    try:
-        # Compatible with older cuml version (before 23.02)
-        from cuml.common.input_utils import input_to_cuml_array
-    except ImportError:
-        from cuml.common import input_to_cuml_array
-    cumlarray, _, _, _ = input_to_cuml_array(gdf, order=order)
-    return cumlarray
+    import cupy as cp
+
+    array = gdf.to_cupy() if hasattr(gdf, "to_cupy") else gdf
+    return cp.asarray(array, order=order)
 
 
 def dtype_to_pyspark_type(dtype: Union[np.dtype, str]) -> str:
