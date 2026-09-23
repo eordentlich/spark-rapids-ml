@@ -1,0 +1,62 @@
+#!/bin/bash
+# Copyright (c) 2025-2026, NVIDIA CORPORATION.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+# set portion of path below after /dbfs/ to dbfs zip file location
+SPARK_RAPIDS_ML_ZIP=/dbfs/path/to/spark-rapids-ml.zip
+BENCHMARK_ZIP=/dbfs/path/to/benchmark.zip
+# IMPORTANT: specify rapids fully 23.10.0 and not 23.10
+# also, in general, RAPIDS_VERSION (python) fields should omit any leading 0 in month/minor field (i.e. 23.8.0 and not 23.08.0)
+# while SPARK_RAPIDS_VERSION (jar) should have leading 0 in month/minor (e.g. 23.08.2 and not 23.8.2)
+RAPIDS_VERSION=26.6.0
+SPARK_RAPIDS_VERSION=26.06.0
+
+if [[ $DATABRICKS_RUNTIME_VERSION < "17.3" ]]; then
+    SCALA_VERSION=2.12
+else
+    SCALA_VERSION=2.13
+fi
+
+curl -L https://repo1.maven.org/maven2/com/nvidia/rapids-4-spark_${SCALA_VERSION}/${SPARK_RAPIDS_VERSION}/rapids-4-spark_${SCALA_VERSION}-${SPARK_RAPIDS_VERSION}-cuda12.jar -o /databricks/jars/rapids-4-spark_${SCALA_VERSION}-${SPARK_RAPIDS_VERSION}.jar
+
+if [[ $DATABRICKS_RUNTIME_VERSION < "16.4" ]]; then
+    # install cudatoolkit 12.2 via runfile approach on DB < 16.4
+    wget https://developer.download.nvidia.com/compute/cuda/12.2.2/local_installers/cuda_12.2.2_535.104.05_linux.run
+    sh cuda_12.2.2_535.104.05_linux.run --silent --toolkit
+
+    # reset symlink 
+    rm /usr/local/cuda
+    ln -s /usr/local/cuda-12.2 /usr/local/cuda
+fi
+
+# upgrade pip
+/databricks/python/bin/pip install --upgrade pip
+
+# install cudf and cuml
+# using ~= pulls in micro version patches
+# pin numpy to 1.0 for DB < 17.3 as scipy and other library updates will
+# attempt to update it, leading to incompatibility issues with pyspark.
+# TODO revise and test for DB 17.3 and later, which have Spark 4.x.
+/databricks/python/bin/pip install --no-cache-dir \
+    --extra-index-url=https://pypi.anaconda.org/rapidsai-wheels-nightly/simple \
+    "cudf-cu13>=26.10.0a0,<=26.10" "dask-cudf-cu13>=26.10.0a0,<=26.10" \
+    "cuml-cu13>=26.10.0a0,<=26.10" "pylibraft-cu13>=26.10.0a0,<=26.10" \
+    "raft-dask-cu13>=26.10.0a0,<=26.10" \
+    pandas~=3.0.0
+
+# install spark-rapids-ml
+python_ver=`python --version | grep -oP '3\.[0-9]+'`
+unzip ${SPARK_RAPIDS_ML_ZIP} -d /databricks/python3/lib/python${python_ver}/site-packages
+unzip ${BENCHMARK_ZIP} -d /databricks/python3/lib/python${python_ver}/site-packages
+

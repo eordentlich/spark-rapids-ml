@@ -354,6 +354,8 @@ class _RandomForestEstimator(
         total_trees: List[int] = []
 
         all_params = [{}] if extra_params is None else extra_params
+        seed_is_set = self.isSet("seed")
+        seeds_are_set: List[bool] = []
 
         for params in all_params:
             num_trees = (
@@ -363,6 +365,7 @@ class _RandomForestEstimator(
             )
             n_estimators_of_all_params.append(self._estimators_per_worker(num_trees))
             total_trees.append(num_trees)
+            seeds_are_set.append(seed_is_set or "random_state" in params)
 
         is_classification = self._is_classification()
 
@@ -410,7 +413,7 @@ class _RandomForestEstimator(
                 )
 
                 # Fit a random forest model on the dataset (X, y)
-                rf.fit(X, y, convert_dtype=False)
+                rf.fit(X, y)
 
                 missing_labels_error_message = "A GPU worker did not receive all label values in the range 0, 1, ..., num_classes - 1, which is currently required. \
                             Depending on the root cause, possible work arounds are to remap the labels to the required range, increase the number \
@@ -483,6 +486,14 @@ class _RandomForestEstimator(
                 tmp_rf_params = rf_params.copy()
                 tmp_rf_params.update(fit_multiple_params[i])
                 tmp_rf_params.pop("n_estimators")
+
+                # Spark assigns a generated default seed even when the user did not
+                # set one. Starting with cuML 26.10, that seed affects RF training
+                # even when bootstrap and feature sampling are disabled. Preserve
+                # the previous behavior, and cuML single-GPU parity, by using the
+                # cuML default unless the Spark seed was explicitly set.
+                if not seeds_are_set[i]:
+                    tmp_rf_params["random_state"] = None
 
                 if tmp_rf_params["max_features"] == "auto":
                     if total_trees[i] == 1:

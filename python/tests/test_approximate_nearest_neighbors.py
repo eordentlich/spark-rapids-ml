@@ -20,7 +20,6 @@ import pandas as pd
 import pytest
 from _pytest.logging import LogCaptureFixture
 from pyspark.sql import DataFrame
-from pyspark.sql.functions import col
 from pyspark.sql.types import Row
 from sklearn.datasets import make_blobs
 
@@ -457,10 +456,9 @@ def ann_algorithm_test_func(
     conf = {"spark.sql.execution.arrow.maxRecordsPerBatch": str(max_record_batch)}
     with CleanSparkSession(conf) as spark:
         data_df, features_col, label_col = create_pyspark_dataframe(
-            spark, feature_type, data_type, X, y
+            spark, feature_type, data_type, X, y, label_dtype=np.dtype(np.int64)
         )
         assert label_col is not None
-        data_df = data_df.withColumn(label_col, col(label_col).cast("long"))
         id_col = label_col
 
         knn_est = (

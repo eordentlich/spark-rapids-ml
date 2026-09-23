@@ -48,14 +48,20 @@ fi
 # pin numpy to 1.0 for DB < 17.3 as scipy and other library updates will
 # attempt to update it, leading to incompatibility issues with pyspark.
 # TODO revise and test for DB 17.3 and later, which have Spark 4.x.
+# /databricks/python/bin/pip install --no-cache-dir \
+#     cudf-cu12~=${RAPIDS_VERSION} \
+#     cuml-cu12~=${RAPIDS_VERSION} \
+#     cuvs-cu12~=${RAPIDS_VERSION} \
+#     pylibraft-cu12~=${RAPIDS_VERSION} \
+#     raft-dask-cu12~=${RAPIDS_VERSION} \
+#     numpy~=1.0 \
+#     --extra-index-url=https://pypi.nvidia.com
 /databricks/python/bin/pip install --no-cache-dir \
-    cudf-cu12~=${RAPIDS_VERSION} \
-    cuml-cu12~=${RAPIDS_VERSION} \
-    cuvs-cu12~=${RAPIDS_VERSION} \
-    pylibraft-cu12~=${RAPIDS_VERSION} \
-    raft-dask-cu12~=${RAPIDS_VERSION} \
-    numpy~=1.0 \
-    --extra-index-url=https://pypi.nvidia.com
+ --extra-index-url=https://pypi.anaconda.org/rapidsai-wheels-nightly/simple \
+    "cudf-cu12>=26.10.0a0,<=26.10" "dask-cudf-cu12>=26.10.0a0,<=26.10" \
+    "cuml-cu12>=26.10.0a0,<=26.10" "pylibraft-cu12>=26.10.0a0,<=26.10" \
+    "raft-dask-cu12>=26.10.0a0,<=26.10" \
+    pandas~=3.0.0
 
 # install spark-rapids-ml
 python_ver=`python --version | grep -oP '3\.[0-9]+'`

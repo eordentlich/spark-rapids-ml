@@ -65,7 +65,9 @@ then
     rf_runs=3
     rf_cpu_options=""
 fi
-num_runs=3
+num_runs=1
+kmeans_runs=1
+rf_runs=1
 
 sep="=================="
 

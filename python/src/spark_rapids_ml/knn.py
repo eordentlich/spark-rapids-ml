@@ -461,18 +461,31 @@ class _NNModelBase(_CumlModel, _NearestNeighborsCumlParams):
             col("zipped.distances").alias(distCol),
         )
 
-        item_df_struct = item_df_withid.select(struct("*").alias("item_df"))
-        query_df_struct = query_df_withid.select(struct("*").alias("query_df"))
+        # Keep the item and query columns flat while joining. Building the wide
+        # structs before the joins prevents Spark from pruning unused fields and
+        # is prohibitively expensive for multi-column inputs with thousands of
+        # features (especially with Spark 4.x). Construct the API result structs
+        # only after both joins so Catalyst can push column pruning through them.
+        item_alias = item_df_withid.alias("item")
+        query_alias = query_df_withid.alias("query")
+        knn_pair_alias = knn_pair_df.alias("knn_pair")
 
-        knnjoin_df = item_df_struct.join(
-            knn_pair_df,
-            item_df_struct[f"item_df.{id_col_name}"]
-            == knn_pair_df[f"item_{id_col_name}"],
+        knnjoin_df = knn_pair_alias.join(
+            item_alias,
+            item_alias[id_col_name] == knn_pair_alias[f"item_{id_col_name}"],
+        ).join(
+            query_alias,
+            query_alias[id_col_name] == knn_pair_alias[f"query_{id_col_name}"],
         )
-        knnjoin_df = knnjoin_df.join(
-            query_df_struct,
-            knnjoin_df[f"query_{id_col_name}"]
-            == query_df_struct[f"query_df.{id_col_name}"],
+
+        knnjoin_df = knnjoin_df.select(
+            struct(*[col(f"item.`{c}`") for c in item_df_withid.columns]).alias(
+                "item_df"
+            ),
+            struct(*[col(f"query.`{c}`") for c in query_df_withid.columns]).alias(
+                "query_df"
+            ),
+            col(f"knn_pair.`{distCol}`"),
         )
 
         if self.isSet(self.idCol):
@@ -782,7 +795,6 @@ class NearestNeighborsModel(_CumlCaller, _NNModelBase, NearestNeighborsClass):
                 ncols=params[param_alias.num_cols],
                 rank=rank,
                 n_neighbors=params[param_alias.cuml_init]["n_neighbors"],
-                convert_dtype=False,  # only np.float32 is supported in cuml. Should set to True for all other types
             )
 
             distances: List[np.ndarray] = res_tuple[0]
@@ -1271,21 +1283,46 @@ class ApproximateNearestNeighborsModel(
         the broadcast splits an array by the BROADCAST_LIMIT bytes
         """
 
-        query_df_withid, select_cols, input_is_multi_cols, tmp_cols = (
-            self._pre_process_data(query_df_withid)
+        input_col, input_cols = self._get_input_columns()
+        id_col = self._getIdColOrDefault()
+        collect_directly = (
+            input_col is None
+            and input_cols is not None
+            and len(query_df_withid.columns) == len(input_cols) + 1
+            and set(query_df_withid.columns) == set(input_cols + [id_col])
+            and all(
+                isinstance(query_df_withid.schema[c].dataType, FloatType)
+                for c in input_cols
+            )
         )
-        query_id_pd = query_df_withid.select(*select_cols).toPandas()
 
-        id_col = alias.row_number
-        query_ids = query_id_pd[id_col].to_numpy()  # type: ignore
-        query_pd = query_id_pd.drop(id_col, axis=1)  # type: ignore
-
-        if input_is_multi_cols:
-            assert len(query_pd.columns) == len(self.getInputCols())
-            query_features = query_pd.to_numpy()
+        if collect_directly:
+            # Avoid projecting an already compatible wide, local DataFrame. Spark 4.x
+            # may eagerly evaluate that projection in ConvertToLocalRelation, making
+            # the cost grow prohibitively for inputs with thousands of columns.
+            assert input_cols is not None
+            query_id_pd = query_df_withid.toPandas()
+            query_ids = query_id_pd[id_col].to_numpy()  # type: ignore
+            query_features = query_id_pd[input_cols].to_numpy(  # type: ignore[index]
+                dtype=dtype
+            )
         else:
-            assert len(query_pd.columns) == 1
-            query_features = np.array(list(query_pd[query_pd.columns[0]]), dtype=dtype)
+            query_df_withid, select_cols, input_is_multi_cols, _ = (
+                self._pre_process_data(query_df_withid)
+            )
+            query_id_pd = query_df_withid.select(*select_cols).toPandas()
+
+            query_ids = query_id_pd[alias.row_number].to_numpy()  # type: ignore
+            query_pd = query_id_pd.drop(alias.row_number, axis=1)  # type: ignore
+
+            if input_is_multi_cols:
+                assert len(query_pd.columns) == len(self.getInputCols())
+                query_features = query_pd.to_numpy()
+            else:
+                assert len(query_pd.columns) == 1
+                query_features = np.array(
+                    list(query_pd[query_pd.columns[0]]), dtype=dtype
+                )
 
         bcast_qids = _get_spark_session().sparkContext.broadcast(query_ids)
         bcast_qfeatures = _get_spark_session().sparkContext.broadcast(query_features)
