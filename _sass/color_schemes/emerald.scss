@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-// Keep the default light theme and replace its purple accents with NVIDIA green.
-$nvidia-green: #76b900;
-$link-color: $nvidia-green;
-$btn-primary-color: $nvidia-green;
+// Keep the default light theme and use dark emerald accents for readable links and buttons.
+$emerald: #065f46;
+$link-color: $emerald;
+$btn-primary-color: $emerald;
