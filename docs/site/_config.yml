@@ -27,7 +27,7 @@ aux_links:
 
 # Build settings
 remote_theme: pmarsceill/just-the-docs
-color_scheme: nvidia
+color_scheme: emerald
 plugins:
   - jekyll-feed
 
