@@ -20,7 +20,7 @@
 # -- Project information -----------------------------------------------------
 # https://www.sphinx-doc.org/en/master/usage/configuration.html#project-information
 
-project = 'spark-rapids-ml'
+project = 'cuML Spark'
 copyright = '2025-2026, NVIDIA'
 author = 'NVIDIA'
 release = '26.06.0'
