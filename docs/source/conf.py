@@ -54,6 +54,9 @@ intersphinx_mapping = {
 # https://www.sphinx-doc.org/en/master/usage/configuration.html#options-for-html-output
 
 html_theme = 'pydata_sphinx_theme'
+html_static_path = ['_static']
+html_css_files = ['vendor/rapids/custom.css', 'cuml-spark.css']
+html_js_files = [('vendor/rapids/custom.js', {'defer': 'defer'})]
 
 html_show_sourcelink = False
 
@@ -80,6 +83,4 @@ def autodoc_skip_member(app, what, name, obj, skip, options):
     return True if exclude or skip else None
 
 def setup(app):
-    app.add_css_file("https://docs.rapids.ai/assets/css/custom.css")
-    app.add_js_file("https://docs.rapids.ai/assets/js/custom.js", loading_method="defer")
     app.connect('autodoc-skip-member', autodoc_skip_member)
