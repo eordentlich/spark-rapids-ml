@@ -32,14 +32,14 @@ html[data-theme="dark"] {
   --pst-color-inline-code-links: #46d6b0;
 }
 
-/* PyData uses its secondary color for heading links and focus accents. */
+/* Keep heading links, focus rings, tables, and API signatures in one palette. */
 html[data-theme] {
   --pst-color-secondary: var(--pst-color-primary);
   --pst-color-secondary-bg: var(--pst-color-primary-bg);
   --pst-color-secondary-highlight: var(--pst-color-primary-highlight);
-}
-
-/* Override the shared stylesheet's purple namespace highlighting. */
-.highlight .nn {
-  color: var(--pst-color-primary);
+  --pst-color-accent: var(--pst-color-primary);
+  --pst-color-accent-bg: var(--pst-color-primary-bg);
+  --pst-color-table-row-hover-bg: var(--pst-color-primary-bg);
+  --pst-color-inline-code: var(--pst-color-inline-code-links);
+  --pst-color-target: var(--pst-color-primary-bg);
 }
