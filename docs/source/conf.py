@@ -54,6 +54,10 @@ intersphinx_mapping = {
 # https://www.sphinx-doc.org/en/master/usage/configuration.html#options-for-html-output
 
 html_theme = 'pydata_sphinx_theme'
+html_theme_options = {
+    'pygments_light_style': 'friendly',
+    'pygments_dark_style': 'native',
+}
 html_static_path = ['_static']
 html_css_files = ['vendor/rapids/custom.css', 'cuml-spark.css']
 html_js_files = [('vendor/rapids/custom.js', {'defer': 'defer'})]
